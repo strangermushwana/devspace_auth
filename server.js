@@ -11,6 +11,8 @@ app.get('/', (req, res) => {
   res.status(200).json('I am alive!')
 })
 
+let refreshTokens = []
+
 const verify = (req, res, next) => {
   const authHeader = req.headers.authorization
   if (authHeader) {
@@ -27,29 +29,52 @@ const verify = (req, res, next) => {
   res.status(401).json('Not authenticated')
 }
 
+const generateAccessToken = (user) => {
+  return jwt.sign({ id: user.id, isAdmin: user.isAdmin},
+    process.env['JWT_SECRET'], { expiresIn: '10m' })
+}
+
+const generateRefreshToken = (user) => {
+  return jwt.sign({ id: user.id, isAdmin: user.isAdmin},
+    process.env['JWT_REFRESH_SECRET'], { expiresIn: '10m' })
+}
+
 app.post('/api/auth/login', (req, res) => {
   const { username, password } = req.body
   const user = db.find((_user) => _user.username === username && _user.password === password)
   if (user) {
-    const accessToken = jwt.sign(
-      { 
-        id: user.id, isAdmin: user.isAdmin
-      },
-      process.env['JWT_SECRET'],
-      { expiresIn: 30 })
+    const accessToken = generateAccessToken(user)
+    const refreshToken = generateRefreshToken(user)
+    refreshTokens.push(refreshToken)
     return res.json({
       id: user.id,
       username: user.username,
       isAdmin: user.isAdmin,
-      token: accessToken,
+      accessToken: accessToken,
+      refreshToken: refreshToken,
     })
   }
   res.status(400).json('Username or Password incorrect')
 })
 
-// app.post('/api/auth/refresh', (req, res) => {
 
-// })
+
+app.post('/api/auth/refresh', (req, res) => {
+  const refreshToken = req.body.token
+  if (!refreshToken) return res.status(401).json('Not authenticated')
+  if (!refreshTokens.includes(refreshToken)) return res.status(403).json('Invalid token')
+  jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET, (err, user) => {
+    err && console.log(err)
+    refreshTokens = refreshTokens.filter((token) => token !== refreshToken)
+    const newAccessToken = generateAccessToken(user)
+    const newRefreshToken = generateRefreshToken(user)
+    refreshTokens.push(newRefreshToken)
+    return res.status(200).json({
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+    })
+  })
+})
 
 app.delete('/api/auth/delete/:id', verify, (req, res) => {
   if (req.user.id === req.params.id || req.user.isAdmin) {
