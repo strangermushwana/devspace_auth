@@ -31,12 +31,12 @@ const verify = (req, res, next) => {
 
 const generateAccessToken = (user) => {
   return jwt.sign({ id: user.id, isAdmin: user.isAdmin},
-    process.env['JWT_SECRET'], { expiresIn: '10m' })
+    process.env['JWT_SECRET'], { expiresIn: '50s' })
 }
 
 const generateRefreshToken = (user) => {
   return jwt.sign({ id: user.id, isAdmin: user.isAdmin},
-    process.env['JWT_REFRESH_SECRET'], { expiresIn: '10m' })
+    process.env['JWT_REFRESH_SECRET'])
 }
 
 app.post('/api/auth/login', (req, res) => {
@@ -57,7 +57,11 @@ app.post('/api/auth/login', (req, res) => {
   res.status(400).json('Username or Password incorrect')
 })
 
-
+app.post('/api/auth/logout', verify, (req, res) => {
+  const refreshToken = req.body.token
+  refreshTokens = refreshTokens.filter((token) => token !== refreshToken)
+  res.status(200).json('Logged out')
+})
 
 app.post('/api/auth/refresh', (req, res) => {
   const refreshToken = req.body.token
