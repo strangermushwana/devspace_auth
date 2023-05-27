@@ -1,6 +1,7 @@
 import express from 'express'
 import jwt from 'jsonwebtoken'
 import dotenv from 'dotenv'
+import passport from 'passport'
 import { verify } from "../middleware/verifyAuth.js"
 import { generateAccessToken, generateRefreshToken } from '../utils/utils.js'
 import db from '../../db.js'
@@ -15,6 +16,17 @@ router.use(express.json())
 router.get('/', (req, res) => {
   res.status(200).json('I am alive!')
 })
+
+router.get(`/login/failed`, (req, res) => {
+  console.log('login failed')
+  res.status(401).json({ error: 'Authentication failed' })
+})
+
+router.get(`${PATH}/auth-google`, passport.authenticate('google', { scope: ['profile'] }))
+router.get('/google/callback', passport.authenticate('google', {
+  sucsessRedirect: process.env.CLIENT_URL,
+  failureRedirect: '/login/failed'
+}))
 
 router.post(`${PATH}/login`, (req, res) => {
   const { username, password } = req.body
